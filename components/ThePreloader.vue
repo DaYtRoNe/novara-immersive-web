@@ -3,10 +3,22 @@ import { gsap } from 'gsap'
 import { site } from '~/content/site'
 import { Smoothed } from '~/lib/lerp'
 import { device } from '~/lib/device'
+import { playSound, unlockAudio } from '~/lib/audio'
 
+/**
+ * Loading screen. It always opens the site by itself once loading is done.
+ * A click (or Enter/Space) anywhere while it's showing switches sound on;
+ * with no click the site opens muted.
+ *
+ * Browsers only let audio start inside a user gesture, so the audio context
+ * is unlocked right in the click handler, not later when the site opens.
+ */
 const emit = defineEmits<{ enter: [withSound: boolean] }>()
 
-const { loadProgress, loaded } = useAppState()
+/** Pause at 100% before opening, so the finished state is readable. */
+const HOLD_AT_100_MS = 700
+
+const { loadProgress, loaded, isMuted } = useAppState()
 const root = ref<HTMLElement | null>(null)
 const bar = ref<HTMLElement | null>(null)
 const percentEl = ref<HTMLElement | null>(null)
@@ -14,6 +26,8 @@ const cursor = ref<HTMLElement | null>(null)
 const visible = ref(true)
 const lineIndex = ref(0)
 const ready = ref(false)
+const soundOn = ref(false)
+const isTouch = ref(false)
 
 // --- displayed progress eases toward the real value (never jumps) --------
 const shown = new Smoothed(0, 0.08)
@@ -43,48 +57,102 @@ const tickLines = () => {
 onMounted(tickLines)
 onBeforeUnmount(() => clearTimeout(tickTimer))
 
-// --- cursor-follow CTA (desktop only) -------------------------------------
-const cx = new Smoothed(0, 0.18)
-const cy = new Smoothed(0, 0.18)
-const onPointer = (e: PointerEvent) => {
-  cx.target = e.clientX
-  cy.target = e.clientY
+// --- sound opt-in ---------------------------------------------------------
+function enableSound() {
+  if (soundOn.value || leaving) return
+  soundOn.value = true
+  isMuted.value = false
+  unlockAudio()
+  playSound('click', { throttleMs: 0 })
+}
+
+const onKey = (e: KeyboardEvent) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return
+  e.preventDefault()
+  enableSound()
 }
 onMounted(() => {
-  cx.snap(window.innerWidth / 2)
-  cy.snap(window.innerHeight * 0.7)
+  window.addEventListener('keydown', onKey)
+  // A click before hydration was caught by the inline script in nuxt.config.
+  // The page already has user activation, so audio may still be unlocked.
+  if ((window as Window & { __earlySoundOptIn?: boolean }).__earlySoundOptIn) enableSound()
+})
+onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+
+// --- cursor-follow badge (pointer devices) --------------------------------
+// Two speeds: a small dot sticks to the pointer, the badge trails behind it
+// and stretches along its direction of travel.
+const cursorInner = ref<HTMLElement | null>(null)
+const dot = ref<HTMLElement | null>(null)
+const cx = new Smoothed(0, 0.12)
+const cy = new Smoothed(0, 0.12)
+const dx = new Smoothed(0, 0.45)
+const dy = new Smoothed(0, 0.45)
+const onPointer = (e: PointerEvent) => {
+  cx.target = dx.target = e.clientX
+  cy.target = dy.target = e.clientY
+}
+onMounted(() => {
+  isTouch.value = device.isTouch
+  const x = window.innerWidth / 2
+  const y = window.innerHeight * 0.68
+  cx.snap(x)
+  cy.snap(y)
+  dx.snap(x)
+  dy.snap(y)
+  // Place it before the first frame so it never flashes in the corner.
+  if (cursor.value) cursor.value.style.transform = `translate3d(${x}px, ${y}px, 0)`
   window.addEventListener('pointermove', onPointer, { passive: true })
 })
 onBeforeUnmount(() => window.removeEventListener('pointermove', onPointer))
 useRaf(
   ({ delta }) => {
-    if (cursor.value) cursor.value.style.transform = `translate3d(${cx.update(undefined, delta)}px, ${cy.update(undefined, delta)}px, 0)`
+    const px = cx.current
+    const py = cy.current
+    const x = cx.update(undefined, delta)
+    const y = cy.update(undefined, delta)
+    if (cursor.value) cursor.value.style.transform = `translate3d(${x}px, ${y}px, 0)`
+    if (dot.value) dot.value.style.transform = `translate3d(${dx.update(undefined, delta)}px, ${dy.update(undefined, delta)}px, 0)`
+
+    // Squash & stretch from the badge's own speed.
+    const vx = x - px
+    const vy = y - py
+    const stretch = Math.min(Math.hypot(vx, vy) / 60, 0.22)
+    const angle = (Math.atan2(vy, vx) * 180) / Math.PI
+    if (cursorInner.value)
+      cursorInner.value.style.transform = `rotate(${angle}deg) scale(${1 + stretch}, ${1 - stretch * 0.7}) rotate(${-angle}deg)`
   },
-  { active: ready },
+  { active: visible },
 )
 
-// --- exit -----------------------------------------------------------------
+// --- exit: always automatic once loading is done --------------------------
 let leaving = false
-async function enter(withSound: boolean) {
-  if (!ready.value || leaving) return
+async function enter() {
+  if (leaving) return
   leaving = true
-  emit('enter', withSound)
+  window.removeEventListener('keydown', onKey)
+  emit('enter', soundOn.value)
+  const q = gsap.utils.selector(root)
   await gsap
     .timeline()
-    .to('.preloader__content', { autoAlpha: 0, y: -20, duration: 0.4, ease: 'power2.in' })
+    .to(q('.preloader__content'), { autoAlpha: 0, y: -20, duration: 0.4, ease: 'power2.in' }, 0)
+    // The badge implodes; animate its .badge (not the follow wrappers, whose
+    // transforms are written every frame).
+    .to(q('.badge'), { scale: 0, autoAlpha: 0, duration: 0.45, ease: 'back.in(2)' }, 0)
+    .to(q('.preloader__dot, .preloader__hint .type-mono'), { autoAlpha: 0, duration: 0.3 }, 0)
     .to(root.value, { clipPath: 'inset(0 0 100% 0)', duration: 0.9, ease: 'expo.inOut' }, '-=0.1')
   visible.value = false
 }
 
-const onBackdropClick = () => {
-  if (!device.isTouch) enter(true)
-}
+let holdTimer: ReturnType<typeof setTimeout> | undefined
+watch(ready, (r) => {
+  if (r) holdTimer = setTimeout(enter, HOLD_AT_100_MS)
+})
+onBeforeUnmount(() => clearTimeout(holdTimer))
 
-watch(ready, async (r) => {
-  if (!r) return
-  await nextTick()
-  gsap.from('.preloader__enter > *', { autoAlpha: 0, y: 12, stagger: 0.08, duration: 0.6 })
-  root.value?.querySelector<HTMLElement>('.preloader__enter button')?.focus({ preventScroll: true })
+const hintText = computed(() => {
+  if (soundOn.value) return 'Sound on'
+  return isTouch.value ? 'Tap to enable sound' : 'Click to enable sound'
 })
 </script>
 
@@ -93,13 +161,13 @@ watch(ready, async (r) => {
     v-if="visible"
     ref="root"
     class="preloader"
-    :class="{ 'is-ready': ready }"
+    :class="{ 'is-ready': ready, 'is-sound-on': soundOn, 'is-touch': isTouch }"
     role="dialog"
     aria-modal="true"
     aria-label="Loading"
-    @click.self="onBackdropClick"
+    @pointerdown="enableSound"
   >
-    <div class="preloader__content" @click.self="onBackdropClick">
+    <div class="preloader__content">
       <div class="preloader__mark">
         <LogoMark motion="pulse" />
       </div>
@@ -114,19 +182,25 @@ watch(ready, async (r) => {
         </span>
         <span class="preloader__line" aria-hidden="true">{{ site.preloaderLines[lineIndex] }}</span>
       </div>
+    </div>
 
-      <div v-if="ready" class="preloader__enter">
-        <button type="button" class="enter-btn" @click="enter(true)">
-          <BtnAudio :interactive="false" />
-          <span>Enter with sound</span>
-        </button>
-        <button type="button" class="enter-muted type-mono" @click="enter(false)">or enter muted</button>
+    <!-- Pointer devices: the badge follows the cursor. Touch: fixed below the bar. -->
+    <template v-if="!isTouch">
+      <div ref="cursor" class="preloader__cursor" aria-hidden="true">
+        <div ref="cursorInner" class="preloader__cursor-inner">
+          <SoundBadge :sound-on="soundOn" />
+        </div>
       </div>
+      <div ref="dot" class="preloader__dot" aria-hidden="true" />
+    </template>
+    <div v-else class="preloader__hint" aria-hidden="true">
+      <SoundBadge :sound-on="soundOn" />
+      <span class="type-mono">{{ hintText }}</span>
     </div>
 
-    <div v-if="ready" ref="cursor" class="preloader__cursor type-mono" aria-hidden="true">
-      <span>Click to enter</span>
-    </div>
+    <p class="visually-hidden" aria-live="polite">
+      {{ soundOn ? 'Sound enabled.' : 'Loading. Press Enter to enable sound.' }}
+    </p>
   </div>
 </template>
 
@@ -139,25 +213,22 @@ watch(ready, async (r) => {
   place-items: center;
   background: var(--ink);
   clip-path: inset(0 0 0 0);
-}
-
-.preloader.is-ready {
   cursor: none;
+  user-select: none;
 }
 
-@media (hover: none) {
-  .preloader.is-ready {
-    cursor: auto;
-  }
+.preloader.is-touch {
+  cursor: auto;
 }
 
 .preloader__content {
   width: min(560px, 84vw);
   display: grid;
   gap: 18px;
+  pointer-events: none;
 }
 
-/* The mark itself pulses its core and slowly turns its ring (LogoMark motion="pulse"). */
+/* The mark pulses its core and slowly turns its ring (LogoMark motion="pulse"). */
 .preloader__mark {
   width: 40px;
   color: var(--signal);
@@ -197,60 +268,47 @@ watch(ready, async (r) => {
   }
 }
 
-.preloader__enter {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  margin-top: 26px;
-  flex-wrap: wrap;
-}
-
-.enter-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 22px;
-  background: var(--bone);
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
-  transition: background 0.25s;
-}
-
-.enter-btn:hover {
-  background: var(--signal);
-}
-
-.enter-muted {
-  color: var(--dim);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
+/* ---- sound hint ---- */
 .preloader__cursor {
   position: fixed;
   left: 0;
   top: 0;
   pointer-events: none;
   will-change: transform;
+  /* Same start point the script snaps to, so the server-rendered HTML
+     shows it in place before hydration. */
+  transform: translate3d(50vw, 68vh, 0);
 }
 
-.preloader__cursor span {
-  display: block;
-  transform: translate(-50%, -50%);
-  padding: 8px 12px;
-  border: 1px solid var(--bone);
-  border-radius: 999px;
-  background: rgb(7 9 12 / 0.7);
-  white-space: nowrap;
+/* Centre the badge on the pointer; the inner wrapper carries the stretch. */
+.preloader__cursor-inner {
+  margin: -70px 0 0 -70px;
+  will-change: transform;
 }
 
-@media (hover: none) {
-  .preloader__cursor {
-    display: none;
-  }
+/* Small precise dot that sticks to the pointer. */
+.preloader__dot {
+  position: fixed;
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--signal);
+  pointer-events: none;
+  transform: translate3d(50vw, 68vh, 0);
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+/* Touch: the badge sits still below the bar with a caption. */
+.preloader__hint {
+  position: fixed;
+  left: 50%;
+  bottom: 12vh;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  transform: translateX(-50%);
+  color: var(--dim);
 }
 </style>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { assetLoader } from '~/lib/loader'
-import { fadeSound, loadSounds, playSound, setMuted, unlockAudio } from '~/lib/audio'
+import { fadeSound, loadSounds, playSound, setMuted } from '~/lib/audio'
 
 const { loadProgress, loaded, entered, pageReady, isMuted } = useAppState()
 
@@ -36,8 +36,9 @@ onMounted(() => {
 
 watch(isMuted, (muted) => setMuted(muted))
 
-async function onEnter(withSound: boolean) {
-  await unlockAudio()
+// Audio was already unlocked by the preloader's click (if any). Never await
+// an unlock here: without a user gesture the browser can leave it pending.
+function onEnter(withSound: boolean) {
   isMuted.value = !withSound
   playSound('intro', { throttleMs: 0 })
   fadeSound('ambient', 0.32, 3000)

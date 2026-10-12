@@ -17,6 +17,14 @@ export default defineNuxtConfig({
         { name: 'description', content: 'NOVARA is an open sci-fi world told through signals, factions and fragments.' },
         { name: 'theme-color', content: '#07090c' },
       ],
+      script: [
+        {
+          // Remember a click/key that lands before the app has hydrated, so the
+          // preloader's "click to enable sound" never misses an early click.
+          innerHTML:
+            "(function(){function m(e){if(e.type==='keydown'&&e.key!=='Enter'&&e.key!==' ')return;window.__earlySoundOptIn=true;removeEventListener('pointerdown',m,true);removeEventListener('keydown',m,true)}addEventListener('pointerdown',m,true);addEventListener('keydown',m,true)})()",
+        },
+      ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
