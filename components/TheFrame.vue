@@ -13,6 +13,7 @@ const { go, isActive } = useSiteNav()
 
 const root = ref<HTMLElement | null>(null)
 const progressEl = ref<HTMLElement | null>(null)
+const mark = ref<{ play: (o?: { delay?: number }) => void } | null>(null)
 const scrolled = ref(false)
 
 const tabClip = cornerCutPolygon(['bl'], '14px')
@@ -41,6 +42,7 @@ watch(entered, (v) => {
     .timeline({ delay: 0.5 })
     .to('.frame__line', { scaleX: 1, scaleY: 1, duration: 1.2, ease: 'expo.inOut', stagger: 0.08 })
     .to('.frame [data-reveal]', { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.05 }, '-=0.5')
+    .call(() => mark.value?.play(), undefined, '<')
 })
 </script>
 
@@ -62,11 +64,7 @@ watch(entered, (v) => {
     </div>
 
     <a href="/" class="frame__mark" aria-label="NOVARA home" data-reveal @click.prevent="go('/')">
-      <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
-        <path d="M20 3 L37 33 H3 Z" />
-        <path d="M20 14 L28 28 H12 Z" />
-        <path d="M20 0 V8 M20 33 V40" />
-      </svg>
+      <LogoMark ref="mark" class="frame__logo" />
       <span class="frame__brand type-mono">{{ site.name }}</span>
     </a>
 
@@ -185,10 +183,17 @@ watch(entered, (v) => {
   transition: color 0.3s;
 }
 .frame__mark svg {
-  width: 30px;
+  width: 28px;
 }
 .frame__mark:hover {
   color: var(--signal);
+}
+/* Hover: the signal ring turns a quarter, like a dial being tuned. */
+.frame__mark :deep(.ring) {
+  transition: transform 0.7s var(--ease-out);
+}
+.frame__mark:hover :deep(.ring) {
+  transform: rotate(90deg);
 }
 .frame__brand {
   writing-mode: vertical-rl;

@@ -32,9 +32,7 @@ onMounted(() => {
 <template>
   <div ref="root" class="wipe" aria-hidden="true">
     <div class="wipe__inner">
-      <svg class="wipe__mark" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M20 3 L37 33 H3 Z" />
-      </svg>
+      <LogoMark class="wipe__mark" motion="spin" />
       <span class="type-mono">// Tuning signal</span>
     </div>
   </div>
@@ -57,14 +55,8 @@ onMounted(() => {
   gap: 14px;
 }
 
+/* Only the signal ring spins (LogoMark motion="spin"); the mast stays upright. */
 .wipe__mark {
-  width: 34px;
-  animation: spin 1.2s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  width: 40px;
 }
 </style>

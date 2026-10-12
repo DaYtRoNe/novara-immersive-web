@@ -100,11 +100,8 @@ watch(ready, async (r) => {
     @click.self="onBackdropClick"
   >
     <div class="preloader__content" @click.self="onBackdropClick">
-      <div class="preloader__mark" aria-hidden="true">
-        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M20 3 L37 33 H3 Z" />
-          <path d="M20 14 L28 28 H12 Z" />
-        </svg>
+      <div class="preloader__mark">
+        <LogoMark motion="pulse" />
       </div>
 
       <div class="preloader__bar">
@@ -160,17 +157,11 @@ watch(ready, async (r) => {
   gap: 18px;
 }
 
+/* The mark itself pulses its core and slowly turns its ring (LogoMark motion="pulse"). */
 .preloader__mark {
-  width: 34px;
+  width: 40px;
   color: var(--signal);
   margin-bottom: 10px;
-  animation: pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  50% {
-    opacity: 0.35;
-  }
 }
 
 .preloader__bar {

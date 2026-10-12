@@ -16,7 +16,10 @@ const year = new Date().getFullYear()
         </li>
       </ul>
     </div>
-    <p class="footer__word type-display" aria-hidden="true">{{ site.name }}</p>
+    <div class="footer__word" aria-hidden="true">
+      <LogoMark class="footer__mark" />
+      <LogoWordmark :outline="true" />
+    </div>
     <div class="footer__bottom type-mono">
       <span>© {{ year }} {{ site.name }} — placeholder world</span>
       <span>Built with Nuxt, three.js, GSAP &amp; Howler</span>
@@ -53,12 +56,20 @@ const year = new Date().getFullYear()
   gap: 4px;
 }
 
+/* Full-width lockup: solid mark + outlined wordmark, sized to the column. */
 .footer__word {
-  margin: 60px 0 24px;
-  font-size: clamp(5rem, 26vw, 30rem);
-  line-height: 0.75;
-  color: transparent;
-  -webkit-text-stroke: 1px var(--faint);
+  display: grid;
+  /* Grid, not flex: unsized SVGs don't shrink reliably as flex items. */
+  grid-template-columns: 13% minmax(0, 1fr);
+  align-items: center;
+  gap: 3.5%;
+  margin: 72px 0 28px;
+  color: var(--faint);
+}
+
+.footer__mark {
+  width: 100%;
+  color: var(--signal);
 }
 
 .footer__bottom {
