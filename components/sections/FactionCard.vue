@@ -1,21 +1,38 @@
 <script setup lang="ts">
+import { gsap } from 'gsap'
 import type { Faction } from '~/content/site'
-import { createSigilMaterial } from '~/lib/gl/materials'
+import { createVideoMaterial } from '~/lib/gl/materials'
 import type { Stage } from '~/lib/gl/Stage'
 
 const props = defineProps<{ faction: Faction }>()
 
+/** Playback speed while hovered: the scene "wakes up". */
+const HOVER_RATE = 1.6
+
 const root = ref<HTMLElement | null>(null)
+const video = ref<HTMLVideoElement | null>(null)
 const hovering = useHover(root)
-const material = (stage: Stage) => createSigilMaterial(stage.shared, props.faction.tint, props.faction.seed)
+// Artwork, not a raw feed: full brightness and sharp at rest, faint scanlines.
+const material = (stage: Stage) =>
+  createVideoMaterial(stage.shared, video.value!, { idleBrightness: 0.92, idleSplit: 0, scanlines: 0.05 })
 const fallbackTint = computed(() => props.faction.tint.map((c) => Math.round(c * 255)).join(' '))
+const poster = computed(() => `${props.faction.video}-poster.jpg`)
+
+// Loaded as the section approaches (not in the preloader), played while visible.
+useLazyVideo(video, root, () => props.faction.video)
+
+// Ease the playback rate rather than jumping it.
+watch(hovering, (h) => {
+  if (video.value) gsap.to(video.value, { playbackRate: h ? HOVER_RATE : 1, duration: 0.6, ease: 'power2.out' })
+})
 </script>
 
 <template>
   <article ref="root" class="card" tabindex="0" :style="{ '--tint': fallbackTint }">
     <HoverSfx :external-hover="hovering" leave="hoverOut" />
+    <video ref="video" class="card__texture" muted loop playsinline preload="auto" aria-hidden="true" />
     <GlPlane class="card__art" :material="material" :hover="hovering">
-      <div class="card__fallback" />
+      <img class="card__fallback" :src="poster" alt="" loading="lazy" />
     </GlPlane>
     <header class="card__head type-mono">
       <span>{{ faction.code }}</span>
@@ -55,13 +72,21 @@ const fallbackTint = computed(() => props.faction.tint.map((c) => Math.round(c *
   align-self: start;
 }
 
+/* Poster shown only when WebGL isn't available. */
 .card__fallback {
   width: 100%;
   height: 100%;
-  background:
-    repeating-radial-gradient(circle at 50% 50%, rgb(var(--tint) / 0.5) 0 1px, transparent 1px 34px),
-    radial-gradient(circle at 50% 50%, rgb(var(--tint) / 0.25), transparent 70%),
-    var(--ink-2);
+  object-fit: cover;
+  background: var(--ink-2);
+}
+
+/* Off-screen source for the WebGL video texture. */
+.card__texture {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .card__head {

@@ -113,7 +113,9 @@ try {
 
 const videoMp4 = join(videoDir, 'signal.mp4')
 const videoWebm = join(videoDir, 'signal.webm')
-const needVideo = !process.argv.includes('--no-video') && (force || !existsSync(videoMp4) || !existsSync(videoWebm))
+// Bootstrap only: never overwrite an existing signal video, even with --force,
+// because public/video/signal.* now holds the real transmission clip.
+const needVideo = !process.argv.includes('--no-video') && (!existsSync(videoMp4) || !existsSync(videoWebm))
 
 if (needVideo && (!ffmpeg || !existsSync(ffmpeg))) {
   console.warn('! ffmpeg-static binary not found; skipping video. Re-run once `npm install` has finished.')

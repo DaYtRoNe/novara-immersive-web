@@ -32,9 +32,9 @@ npm run dev
 
 | Feature | Files | Technique |
 |---|---|---|
-| **Loader and percentage** | `lib/loader.ts`, `components/ThePreloader.vue`, `layouts/default.vue` | Weighted progress over tasks from anywhere in the app (fonts, sounds, video bytes via streamed `fetch`, shader compile, minimum time). The displayed % eases toward the real value. Entering unlocks audio. |
+| **Loader and percentage** | `lib/loader.ts`, `components/ThePreloader.vue`, `layouts/default.vue` | Weighted progress over tasks from anywhere in the app (fonts, sounds, shader compile, minimum time); videos load lazily as their section approaches (`composables/useLazyVideo.ts`). The displayed % eases toward the real value. Entering unlocks audio. |
 | **Decode text** | `components/HackyText.vue` | Two tweened cursors (typed and resolved). Characters between them are random glyphs. Real text stays in the DOM for screen readers and the scramble layer is `aria-hidden`. Triggered by scroll, hover or `play()`. |
-| **WebGL canvas** | `lib/gl/*`, `components/WebglStage.vue`, `components/GlPlane.vue` | One fixed canvas with 3 passes: noise background, perspective "shards" (instanced triangles drawn with barycentric edges, morphing into a halo), and pixel-space planes glued to DOM boxes (sigil cards, video texture). DPR ≤ 1.5, no MSAA. |
+| **WebGL canvas** | `lib/gl/*`, `components/WebglStage.vue`, `components/GlPlane.vue` | One fixed canvas with 3 passes: noise background, perspective "shards" (instanced triangles drawn with barycentric edges, morphing into a halo), and pixel-space planes glued to DOM boxes (faction card videos, signal video). DPR ≤ 1.5, no MSAA. |
 | **Render loop** | `lib/raf.ts`, `composables/useRaf.ts`, `lib/lerp.ts` | A single ordered frame loop on `gsap.ticker`. `Smoothed` values give frame-rate-independent lerp. |
 | **Scroll** | `lib/scroll.ts`, `components/SmoothScroll.vue`, `composables/useScrollStory.ts`, `components/RevealMask.vue` | ScrollSmoother, plus a per-page **timeline measured in scroll pixels** that is `seek()`ed every frame. It drives WebGL state (formation, camera, tint) and DOM parallax. Masks are scrubbed `clip-path`s. |
 | **Sound** | `lib/audio.ts`, `components/HoverSfx.vue`, `components/BtnAudio.vue` | A central sound registry with throttling and a global `Howler.mute()`. The equaliser button uses `repeatRefresh` random tweens. |
@@ -50,5 +50,6 @@ npm run dev
 
 ## Editing content
 
-All copy lives in [`content/site.ts`](content/site.ts). Faction card art is
-procedural: change `tint` and `seed` to restyle it.
+All copy lives in [`content/site.ts`](content/site.ts). Each faction card plays a
+looping 4:5 video (`video` field, e.g. `/video/faction-lantern` → `.webm`, `.mp4` and
+`-poster.jpg` in `public/video/`); `tint` sets its accent colour.

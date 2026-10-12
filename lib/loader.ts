@@ -78,22 +78,3 @@ class AssetLoader extends Emitter<LoaderEvents> {
 }
 
 export const assetLoader = new AssetLoader()
-
-/** Downloads a file with byte-level progress and returns an object URL. */
-export async function fetchWithProgress(url: string, report: Report): Promise<string> {
-  const res = await fetch(url)
-  if (!res.ok || !res.body) throw new Error(`${url}: HTTP ${res.status}`)
-  const total = Number(res.headers.get('content-length')) || 0
-  const reader = res.body.getReader()
-  const chunks: Uint8Array[] = []
-  let received = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-    received += value.length
-    if (total) report(received / total)
-  }
-  const type = res.headers.get('content-type') ?? 'application/octet-stream'
-  return URL.createObjectURL(new Blob(chunks as BlobPart[], { type }))
-}

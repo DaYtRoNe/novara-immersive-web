@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { site } from '~/content/site'
-import { assetLoader, fetchWithProgress } from '~/lib/loader'
 import { createVideoMaterial } from '~/lib/gl/materials'
 import type { Stage } from '~/lib/gl/Stage'
 
@@ -11,39 +9,9 @@ const { video } = useAppState()
 const card = ref<HTMLElement | null>(null)
 const texVideo = ref<HTMLVideoElement | null>(null)
 const hovering = useHover(card)
-let objectUrl: string | null = null
 
-// The texture video is fetched through the asset loader so its download
-// counts toward the preloader's percentage.
-onMounted(() => {
-  const el = texVideo.value
-  if (!el) return
-  const ext = el.canPlayType('video/webm; codecs="vp9"') ? 'webm' : 'mp4'
-  assetLoader.add(
-    'signal-video',
-    async (report) => {
-      objectUrl = await fetchWithProgress(`${s.video.src}.${ext}`, report)
-      el.src = objectUrl
-    },
-    2,
-  )
-})
-onBeforeUnmount(() => objectUrl && URL.revokeObjectURL(objectUrl))
-
-// Only decode video frames while the card is on screen.
-useScrollTrigger(() => {
-  if (!card.value) return
-  ScrollTrigger.create({
-    trigger: card.value,
-    start: 'top bottom',
-    end: 'bottom top',
-    onToggle: ({ isActive }) => {
-      const el = texVideo.value
-      if (!el) return
-      isActive ? el.play().catch(() => {}) : el.pause()
-    },
-  })
-})
+// Loaded as the section approaches (not in the preloader), played while visible.
+useLazyVideo(texVideo, card, () => s.video.src)
 
 const material = (stage: Stage) => createVideoMaterial(stage.shared, texVideo.value!)
 const openPlayer = () => (video.value = { src: s.video.src, title: s.video.title })

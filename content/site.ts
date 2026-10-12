@@ -12,9 +12,10 @@ export interface Faction {
   code: string
   name: string
   blurb: string
-  /** Shader tint for the procedural card art (r, g, b in 0..1). */
+  /** Accent colour for the card border and labels (r, g, b in 0..1). */
   tint: [number, number, number]
-  seed: number
+  /** Looping card video, without extension (.webm and .mp4 + -poster.jpg exist). */
+  video: string
 }
 
 export const site = {
@@ -78,7 +79,7 @@ export const site = {
         name: 'The Lantern Choir',
         blurb: 'Archivists who believe the signal is a memory, and that forgetting it is the only real danger.',
         tint: [1.0, 0.42, 0.18],
-        seed: 1.7,
+        video: '/video/faction-lantern',
       },
       {
         id: 'tideward',
@@ -86,7 +87,7 @@ export const site = {
         name: 'Tideward',
         blurb: 'Pilots who chase the pulse into the drift, mapping debris one dangerous jump at a time.',
         tint: [0.36, 0.95, 1.0],
-        seed: 4.2,
+        video: '/video/faction-tideward',
       },
       {
         id: 'hollows',
@@ -94,7 +95,7 @@ export const site = {
         name: 'The Hollows',
         blurb: 'Engineers who think the relay is a lock, and that every fragment is part of a key.',
         tint: [0.82, 1.0, 0.36],
-        seed: 8.9,
+        video: '/video/faction-hollows',
       },
     ] satisfies Faction[],
   },
@@ -103,7 +104,7 @@ export const site = {
     eyebrow: '// 03 — The signal',
     title: 'Pulse 0442, partially decoded.',
     body: 'Press play to watch the raw carrier wave. The noise is the message.',
-    video: { src: '/video/signal', title: 'PULSE_0442.RAW', duration: '0:08' },
+    video: { src: '/video/signal', title: 'PULSE_0442.RAW', duration: '0:10' },
   },
 
   outro: {
