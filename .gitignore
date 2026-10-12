@@ -1,0 +1,16 @@
+node_modules
+.nuxt
+.output
+.data
+dist
+.env
+*.log
+
+# REA working files (large captures of the reference site; keep FINDINGS.md)
+rea-analysis/scripts
+rea-analysis/*.json
+rea-analysis/*.png
+
+# Screen recordings of the reference site (third-party artwork, large)
+videos/
+rea-analysis/*.err
